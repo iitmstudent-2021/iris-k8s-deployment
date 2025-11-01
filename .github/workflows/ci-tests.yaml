@@ -1,0 +1,45 @@
+name: CI - Testing Pipeline
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        
+    - name: Download artifacts from GCS
+      run: |
+        python download_from_gcs.py
+        echo "Model and data downloaded from GCS"
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        echo "Dependencies installed"
+        
+    - name: Run tests
+      run: |
+        pytest tests/ -v
+        echo "All tests passed"
+        
+    - name: Test API endpoints
+      run: |
+        pytest tests/test_api.py -v
+        echo "API tests passed"
