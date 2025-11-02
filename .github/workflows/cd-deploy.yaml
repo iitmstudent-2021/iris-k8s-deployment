@@ -83,7 +83,7 @@ jobs:
     - name: Verify deployment
       run: |
         echo "Waiting for rollout to complete..."
-        kubectl rollout status deployment/iris-classifier --timeout=5m
+        kubectl rollout status deployment/iris-classifier --timeout=10m
         
         echo ""
         echo "Deployment status:"
