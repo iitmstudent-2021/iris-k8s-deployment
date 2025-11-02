@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iris-classifier
+  labels:
+    app: iris-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: iris-api
+  template:
+    metadata:
+      labels:
+        app: iris-api
+    spec:
+      containers:
+      - name: iris-api
+        image: us-central1-docker.pkg.dev/poised-defender-472812-e6/iris-repo/iris-api:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PORT
+          value: "8000"
