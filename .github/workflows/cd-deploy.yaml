@@ -70,7 +70,7 @@ jobs:
         
     - name: Get GKE credentials
       run: |
-        gcloud container clusters get-credentials iris-cluster --zone us-central1-a --project poised-defender-472812-e6
+        gcloud container clusters get-credentials iris-cluster --region us-central1 --project poised-defender-472812-e6
         
     - name: Deploy to Kubernetes
       run: |
