@@ -78,10 +78,7 @@ def main():
         print("\n✅ All artifacts downloaded successfully!")
     
     # Always exit successfully - the workflow will create dummy files if needed
-<<<<<<< HEAD
     print("\n✅ Download script completed (exit 0)")
-=======
->>>>>>> 9de670f32520420f9bbd9217e714b3f211c97559
     sys.exit(0)
 
 if __name__ == "__main__":
