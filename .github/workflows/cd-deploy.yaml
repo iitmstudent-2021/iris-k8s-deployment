@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: poised-defender-472812-e6
   GKE_CLUSTER: iris-cluster
-  GKE_ZONE: us-central1-a
+  GKE_REGION: us-central1
   IMAGE_NAME: iris-api
   REPOSITORY: iris-repo
   REGION: us-central1
