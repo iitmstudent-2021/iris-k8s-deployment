@@ -231,23 +231,21 @@ jobs:
     - name: Week-7 Results Summary
       run: |
         echo "========================================================"
-        echo "WEEK-7 ASSIGNMENT RESULTS SUMMARY"
+        echo "WEEK-7 ASSIGNMENT - GENERATING STRESS TEST REPORT"
         echo "========================================================"
         echo ""
-        echo "📊 Load Test Results:"
+        
+        # Make the report generator executable
+        chmod +x generate_stress_report.sh
+        
+        # Generate the comprehensive stress test analysis report
+        ./generate_stress_report.sh
+        
         echo ""
-        echo "Test 1 (1000 concurrent):"
-        echo "-------------------------"
-        grep -A 10 "Latency Distribution" load_test_1000.txt || echo "Results in load_test_1000.txt"
+        echo "✅ Stress test analysis report generated!"
         echo ""
-        echo "Test 2 (2000 concurrent - bottleneck test):"
-        echo "-------------------------------------------"
-        grep -A 10 "Latency Distribution" load_test_2000.txt || echo "Results in load_test_2000.txt"
-        echo ""
-        echo "🎯 Kubernetes Autoscaling:"
-        echo "-------------------------"
-        echo "HPA Configuration:"
-        kubectl describe hpa iris-classifier-hpa
+        echo "📄 Report preview:"
+        head -50 stress_report.md
         echo ""
         echo "Final Pod Status:"
         kubectl get pods -l app=iris-api -o wide
@@ -263,8 +261,9 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: load-test-results
+        name: week7-stress-test-analysis
         path: |
           load_test_1000.txt
           load_test_2000.txt
+          stress_report.md
         retention-days: 30
