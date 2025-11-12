@@ -10,7 +10,7 @@ import sys
 
 # Configuration
 PROJECT_ID = "poised-defender-472812-e6"
-BUCKET_NAME = "mlops-week6-artifacts-21f2001203"
+BUCKET_NAME = "week6-iris-deployment-21f2001203"
 
 def upload_to_gcs(local_path, blob_name):
     """Upload file to GCS bucket"""

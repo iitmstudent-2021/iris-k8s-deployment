@@ -10,7 +10,7 @@ import sys
 
 # Configuration
 PROJECT_ID = "poised-defender-472812-e6"
-BUCKET_NAME = "mlops-week6-artifacts-21f2001203"
+BUCKET_NAME = "week6-iris-deployment-21f2001203"
 
 def download_from_gcs(blob_name, destination_path):
     """Download file from GCS bucket"""
