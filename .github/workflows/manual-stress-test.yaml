@@ -1,0 +1,226 @@
+name: Manual Stress Test - GKE Deployment
+
+# Manual trigger only - run stress tests on demand
+on:
+  workflow_dispatch:
+    inputs:
+      service_url:
+        description: 'Service URL (e.g., http://136.119.71.23)'
+        required: false
+        default: 'http://136.119.71.23'
+        type: string
+
+jobs:
+  stress-test-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: poised-defender-472812-e6
+    
+    - name: Get GKE credentials
+      run: |
+        gcloud container clusters get-credentials iris-cluster --zone us-central1-a --project poised-defender-472812-e6
+    
+    - name: Verify cluster connection
+      run: |
+        echo "=============================================="
+        echo "KUBERNETES CLUSTER STATUS"
+        echo "=============================================="
+        echo ""
+        kubectl cluster-info
+        echo ""
+        echo "Current pods:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        echo "Current HPA status:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA not found or metrics pending..."
+        echo ""
+    
+    - name: Install wrk (HTTP benchmarking tool)
+      run: |
+        echo "Installing wrk..."
+        sudo apt-get update
+        sudo apt-get install -y wrk
+        echo "✅ wrk installed successfully"
+        which wrk
+    
+    - name: Phase 1 - Normal AutoScaling Test (500 concurrent)
+      run: |
+        echo "=============================================="
+        echo "PHASE 1: AUTO-SCALING TEST"
+        echo "=============================================="
+        echo "Configuration:"
+        echo "  - Concurrent connections: 500"
+        echo "  - Duration: 30 seconds"
+        echo "  - Threads: 4"
+        echo "  - Endpoint: ${{ inputs.service_url }}/"
+        echo ""
+        
+        echo "Initial pod count:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        
+        echo "Starting load test..."
+        wrk -t4 -c500 -d30s --latency ${{ inputs.service_url }}/ > phase1_results.txt
+        
+        cat phase1_results.txt
+        echo ""
+        
+        echo "Waiting 10 seconds for HPA to react..."
+        sleep 10
+        
+        echo "Pod status after Phase 1:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        
+        echo "HPA status after Phase 1:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
+        echo ""
+    
+    - name: Wait for HPA scaling
+      run: |
+        echo "=============================================="
+        echo "MONITORING HPA SCALING"
+        echo "=============================================="
+        echo "Waiting 60 seconds for pods to scale..."
+        sleep 60
+        
+        echo ""
+        echo "Current HPA status:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics pending..."
+        echo ""
+        
+        echo "Current pod count:"
+        kubectl get pods -l app=iris-api -o wide
+        echo ""
+        
+        echo "Pod metrics:"
+        kubectl top pods -l app=iris-api || echo "Metrics not available yet"
+        echo ""
+    
+    - name: Phase 2 - Bottleneck Test (Disable HPA, 1 pod, 1000 concurrent)
+      run: |
+        echo "=============================================="
+        echo "PHASE 2: BOTTLENECK TEST (HPA DISABLED)"
+        echo "=============================================="
+        echo "Disabling HPA and scaling to 1 pod..."
+        kubectl delete hpa iris-classifier-hpa || echo "HPA already deleted"
+        kubectl scale deployment iris-classifier --replicas=1
+        
+        echo "Waiting 20 seconds for scale-down..."
+        sleep 20
+        
+        echo "Current pod count (should be 1):"
+        kubectl get pods -l app=iris-api
+        echo ""
+        
+        echo "Starting bottleneck test with 1000 concurrent connections..."
+        wrk -t4 -c1000 -d30s --latency ${{ inputs.service_url }}/ > phase2_bottleneck.txt
+        
+        cat phase2_bottleneck.txt
+        echo ""
+        
+        echo "Pod status after bottleneck test:"
+        kubectl get pods -l app=iris-api
+        echo ""
+    
+    - name: Phase 3 - Bottleneck Resolved (Restore HPA, 1000 concurrent)
+      run: |
+        echo "=============================================="
+        echo "PHASE 3: BOTTLENECK RESOLVED (HPA RESTORED)"
+        echo "=============================================="
+        echo "Restoring HPA..."
+        kubectl apply -f k8s/hpa.yaml
+        
+        echo "Waiting 10 seconds for HPA to initialize..."
+        sleep 10
+        
+        echo "HPA status:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA initializing..."
+        echo ""
+        
+        echo "Starting load test with HPA enabled..."
+        wrk -t4 -c1000 -d30s --latency ${{ inputs.service_url }}/ > phase3_resolved.txt
+        
+        cat phase3_resolved.txt
+        echo ""
+        
+        echo "Waiting for HPA to scale..."
+        sleep 30
+        
+        echo "Final pod count:"
+        kubectl get pods -l app=iris-api -o wide
+        echo ""
+        
+        echo "Final HPA status:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics pending..."
+        echo ""
+    
+    - name: Generate comprehensive stress test report
+      run: |
+        echo "=============================================="
+        echo "GENERATING STRESS TEST ANALYSIS REPORT"
+        echo "=============================================="
+        
+        # Make sure we have the external IP
+        export EXTERNAL_IP="${{ inputs.service_url }}"
+        
+        # Generate the report
+        chmod +x generate_stress_report.sh
+        ./generate_stress_report.sh
+        
+        echo ""
+        echo "✅ Report generated successfully!"
+        echo ""
+        echo "📄 Report preview (first 60 lines):"
+        head -60 stress_report.md
+    
+    - name: Upload stress test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: manual-stress-test-analysis-${{ github.run_number }}
+        path: |
+          phase1_results.txt
+          phase2_bottleneck.txt
+          phase3_resolved.txt
+          stress_report.md
+          load_test_1000.txt
+          load_test_2000.txt
+        retention-days: 30
+    
+    - name: Test Summary
+      if: always()
+      run: |
+        echo "=============================================="
+        echo "STRESS TEST SUMMARY"
+        echo "=============================================="
+        echo ""
+        echo "✅ Phase 1: Auto-scaling test completed"
+        echo "✅ Phase 2: Bottleneck test completed (1 pod)"
+        echo "✅ Phase 3: Bottleneck resolved test completed (HPA enabled)"
+        echo "✅ Comprehensive report generated"
+        echo ""
+        echo "📊 Download artifacts to view:"
+        echo "   - phase1_results.txt"
+        echo "   - phase2_bottleneck.txt"
+        echo "   - phase3_resolved.txt"
+        echo "   - stress_report.md"
+        echo ""
+        echo "Final cluster state:"
+        kubectl get all -l app=iris-api
+        echo ""
+        echo "=============================================="
+        echo "STRESS TEST COMPLETED!"
+        echo "=============================================="

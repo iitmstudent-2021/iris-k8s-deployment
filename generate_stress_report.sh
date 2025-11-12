@@ -5,6 +5,16 @@
 
 REPORT_FILE="stress_report.md"
 
+# Detect which test files exist
+if [ -f "phase1_results.txt" ]; then
+    TEST1_FILE="phase1_results.txt"
+    TEST2_FILE="phase2_bottleneck.txt"
+    TEST3_FILE="phase3_resolved.txt"
+else
+    TEST1_FILE="load_test_1000.txt"
+    TEST2_FILE="load_test_2000.txt"
+fi
+
 echo "# Week-7 Stress Test Analysis Report" > $REPORT_FILE
 echo "" >> $REPORT_FILE
 echo "**Date:** $(date '+%Y-%m-%d %H:%M:%S')" >> $REPORT_FILE
@@ -29,14 +39,14 @@ echo "" >> $REPORT_FILE
 
 echo "### Test Results" >> $REPORT_FILE
 echo "\`\`\`" >> $REPORT_FILE
-cat load_test_1000.txt >> $REPORT_FILE
+cat $TEST1_FILE >> $REPORT_FILE
 echo "\`\`\`" >> $REPORT_FILE
 echo "" >> $REPORT_FILE
 
-# Extract metrics from load_test_1000.txt
-REQUESTS_1000=$(grep "Requests/sec:" load_test_1000.txt | awk '{print $2}')
-LATENCY_1000=$(grep "Latency" load_test_1000.txt | grep "Avg" | awk '{print $2}')
-TRANSFER_1000=$(grep "Transfer/sec:" load_test_1000.txt | awk '{print $2}')
+# Extract metrics from test file
+REQUESTS_1000=$(grep "Requests/sec:" $TEST1_FILE | awk '{print $2}')
+LATENCY_1000=$(grep "Latency" $TEST1_FILE | grep "Avg" | awk '{print $2}')
+TRANSFER_1000=$(grep "Transfer/sec:" $TEST1_FILE | awk '{print $2}')
 
 echo "### 📊 Phase 1 Summary" >> $REPORT_FILE
 echo "" >> $REPORT_FILE
@@ -80,14 +90,14 @@ echo "" >> $REPORT_FILE
 
 echo "### Test Results" >> $REPORT_FILE
 echo "\`\`\`" >> $REPORT_FILE
-cat load_test_2000.txt >> $REPORT_FILE
+cat $TEST2_FILE >> $REPORT_FILE
 echo "\`\`\`" >> $REPORT_FILE
 echo "" >> $REPORT_FILE
 
-# Extract metrics from load_test_2000.txt
-REQUESTS_2000=$(grep "Requests/sec:" load_test_2000.txt | awk '{print $2}')
-LATENCY_2000=$(grep "Latency" load_test_2000.txt | grep "Avg" | awk '{print $2}')
-TRANSFER_2000=$(grep "Transfer/sec:" load_test_2000.txt | awk '{print $2}')
+# Extract metrics from test file
+REQUESTS_2000=$(grep "Requests/sec:" $TEST2_FILE | awk '{print $2}')
+LATENCY_2000=$(grep "Latency" $TEST2_FILE | grep "Avg" | awk '{print $2}')
+TRANSFER_2000=$(grep "Transfer/sec:" $TEST2_FILE | awk '{print $2}')
 
 echo "### 📊 Phase 2 Summary" >> $REPORT_FILE
 echo "" >> $REPORT_FILE
