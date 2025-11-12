@@ -222,9 +222,6 @@ jobs:
         echo "HPA status after 2000 concurrent requests:"
         kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
         echo ""
-        echo "HPA status after 2000 requests:"
-        kubectl get hpa iris-classifier-hpa
-        echo ""
         echo "Final pod metrics:"
         kubectl top pods -l app=iris-api || echo "Metrics not available"
     
