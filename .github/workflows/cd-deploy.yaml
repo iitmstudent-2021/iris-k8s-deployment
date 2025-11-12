@@ -148,7 +148,8 @@ jobs:
         echo "Installing wrk for load testing..."
         sudo apt-get update -qq
         sudo apt-get install -y wrk
-        wrk --version
+        echo "✅ wrk installed successfully"
+        which wrk
     
     - name: Week-7 Task 1 - Load Test with 1000 requests (1 pod baseline)
       run: |
