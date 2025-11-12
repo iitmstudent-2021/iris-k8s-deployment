@@ -4,3 +4,8 @@ scikit-learn
 joblib
 numpy
 pandas
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+opentelemetry-exporter-gcp-trace
+google-cloud-trace

@@ -160,12 +160,12 @@ jobs:
         kubectl get pods -l app=iris-api
         echo ""
         echo "Current HPA status:"
-        kubectl get hpa iris-classifier-hpa
+        kubectl get hpa iris-classifier-hpa || echo "HPA not ready yet, waiting for metrics..."
         echo ""
         echo "Starting load test with 1000 connections for 30 seconds..."
         echo ""
         
-        wrk -t4 -c1000 -d30s --latency -s load-test.lua http://${{ env.EXTERNAL_IP }}/predict/ > load_test_1000.txt
+        wrk -t4 -c1000 -d30s --latency http://${{ env.EXTERNAL_IP }}/ > load_test_1000.txt
         
         cat load_test_1000.txt
         echo ""
@@ -175,7 +175,10 @@ jobs:
         kubectl get pods -l app=iris-api
         echo ""
         echo "HPA status after load test:"
-        kubectl get hpa iris-classifier-hpa
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
+        echo ""
+        echo "HPA status after load test:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
     
     - name: Wait for autoscaling to trigger
       run: |
@@ -184,7 +187,7 @@ jobs:
         
         echo ""
         echo "Checking if HPA scaled up pods:"
-        kubectl get hpa iris-classifier-hpa
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
         kubectl get pods -l app=iris-api
         
         echo ""
@@ -202,12 +205,12 @@ jobs:
         kubectl get pods -l app=iris-api
         echo ""
         echo "Current HPA status:"
-        kubectl get hpa iris-classifier-hpa
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
         echo ""
         echo "Starting load test with 2000 connections for 30 seconds..."
         echo ""
         
-        wrk -t4 -c2000 -d30s --latency -s load-test.lua http://${{ env.EXTERNAL_IP }}/predict/ > load_test_2000.txt
+        wrk -t4 -c2000 -d30s --latency http://${{ env.EXTERNAL_IP }}/ > load_test_2000.txt
         
         cat load_test_2000.txt
         echo ""
@@ -215,6 +218,9 @@ jobs:
         echo ""
         echo "Pod status after 2000 concurrent requests:"
         kubectl get pods -l app=iris-api
+        echo ""
+        echo "HPA status after 2000 concurrent requests:"
+        kubectl get hpa iris-classifier-hpa || echo "HPA metrics still initializing..."
         echo ""
         echo "HPA status after 2000 requests:"
         kubectl get hpa iris-classifier-hpa

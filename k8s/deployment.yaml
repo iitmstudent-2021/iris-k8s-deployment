@@ -27,6 +27,8 @@ spec:
         env:
         - name: PORT
           value: "8000"
+        - name: GCP_PROJECT
+          value: "poised-defender-472812-e6"
         resources:
           requests:
             memory: "128Mi"
