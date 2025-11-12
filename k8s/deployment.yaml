@@ -5,7 +5,7 @@ metadata:
   labels:
     app: iris-api
 spec:
-  replicas: 2
+  replicas: 1  # Changed to 1 for Week-7: HPA will manage scaling
   strategy:
     type: RollingUpdate
     rollingUpdate:

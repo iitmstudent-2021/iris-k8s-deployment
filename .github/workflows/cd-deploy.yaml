@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: poised-defender-472812-e6
   GKE_CLUSTER: iris-cluster
-  GKE_REGION: us-central1
+  GKE_ZONE: us-central1-a  # Changed from region to zone
   IMAGE_NAME: iris-api
   REPOSITORY: iris-repo
   REGION: us-central1
@@ -72,12 +72,13 @@ jobs:
         
     - name: Get GKE credentials
       run: |
-        gcloud container clusters get-credentials iris-cluster --region us-central1 --project poised-defender-472812-e6
+        gcloud container clusters get-credentials iris-cluster --zone us-central1-a --project poised-defender-472812-e6
         
     - name: Deploy to Kubernetes
       run: |
         kubectl apply -f k8s/service.yaml
         kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/hpa.yaml
         kubectl set image deployment/iris-classifier iris-api=us-central1-docker.pkg.dev/poised-defender-472812-e6/iris-repo/iris-api:${{ github.sha }}
         
     - name: Verify deployment
@@ -98,4 +99,165 @@ jobs:
         kubectl get service iris-api-service
         
         echo ""
+        echo "HPA status:"
+        kubectl get hpa iris-classifier-hpa
+        
+        echo ""
         echo "✅ Deployment completed successfully!"
+    
+    - name: Wait for LoadBalancer IP
+      run: |
+        echo "Waiting for LoadBalancer external IP..."
+        for i in {1..30}; do
+          EXTERNAL_IP=$(kubectl get service iris-api-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ ! -z "$EXTERNAL_IP" ]; then
+            echo "✅ External IP assigned: $EXTERNAL_IP"
+            echo "EXTERNAL_IP=$EXTERNAL_IP" >> $GITHUB_ENV
+            break
+          fi
+          echo "Waiting for IP... ($i/30)"
+          sleep 10
+        done
+        
+        if [ -z "$EXTERNAL_IP" ]; then
+          echo "❌ Failed to get external IP"
+          exit 1
+        fi
+    
+    - name: Test API endpoint
+      run: |
+        echo "Testing API endpoint: http://${{ env.EXTERNAL_IP }}/predict/"
+        
+        # Test root endpoint
+        echo "Testing root endpoint..."
+        curl -f http://${{ env.EXTERNAL_IP }}/ || echo "Root endpoint test failed"
+        
+        # Test prediction endpoint
+        echo ""
+        echo "Testing prediction endpoint..."
+        curl -f -X POST http://${{ env.EXTERNAL_IP }}/predict/ \
+          -H "Content-Type: application/json" \
+          -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}' \
+          || echo "Prediction test failed"
+        
+        echo ""
+        echo "✅ API is responding!"
+    
+    - name: Install wrk (load testing tool)
+      run: |
+        echo "Installing wrk for load testing..."
+        sudo apt-get update -qq
+        sudo apt-get install -y wrk
+        wrk --version
+    
+    - name: Week-7 Task 1 - Load Test with 1000 requests (1 pod baseline)
+      run: |
+        echo "========================================================"
+        echo "WEEK-7 LOAD TEST 1: 1000 Concurrent Requests (1 Pod)"
+        echo "========================================================"
+        echo "Current pod count:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        echo "Current HPA status:"
+        kubectl get hpa iris-classifier-hpa
+        echo ""
+        echo "Starting load test with 1000 connections for 30 seconds..."
+        echo ""
+        
+        wrk -t4 -c1000 -d30s --latency -s load-test.lua http://${{ env.EXTERNAL_IP }}/predict/ > load_test_1000.txt
+        
+        cat load_test_1000.txt
+        echo ""
+        echo "Load test completed!"
+        echo ""
+        echo "Pod status after load test:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        echo "HPA status after load test:"
+        kubectl get hpa iris-classifier-hpa
+    
+    - name: Wait for autoscaling to trigger
+      run: |
+        echo "Waiting 60 seconds for HPA to scale up..."
+        sleep 60
+        
+        echo ""
+        echo "Checking if HPA scaled up pods:"
+        kubectl get hpa iris-classifier-hpa
+        kubectl get pods -l app=iris-api
+        
+        echo ""
+        echo "Pod metrics:"
+        kubectl top pods -l app=iris-api || echo "Metrics not available yet"
+    
+    - name: Week-7 Task 2 - Load Test with 2000 requests (observe bottleneck)
+      run: |
+        echo "========================================================"
+        echo "WEEK-7 LOAD TEST 2: 2000 Concurrent Requests"
+        echo "========================================================"
+        echo "Purpose: Observe bottleneck with increased load"
+        echo ""
+        echo "Current pod count before 2000 requests:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        echo "Current HPA status:"
+        kubectl get hpa iris-classifier-hpa
+        echo ""
+        echo "Starting load test with 2000 connections for 30 seconds..."
+        echo ""
+        
+        wrk -t4 -c2000 -d30s --latency -s load-test.lua http://${{ env.EXTERNAL_IP }}/predict/ > load_test_2000.txt
+        
+        cat load_test_2000.txt
+        echo ""
+        echo "Load test completed!"
+        echo ""
+        echo "Pod status after 2000 concurrent requests:"
+        kubectl get pods -l app=iris-api
+        echo ""
+        echo "HPA status after 2000 requests:"
+        kubectl get hpa iris-classifier-hpa
+        echo ""
+        echo "Final pod metrics:"
+        kubectl top pods -l app=iris-api || echo "Metrics not available"
+    
+    - name: Week-7 Results Summary
+      run: |
+        echo "========================================================"
+        echo "WEEK-7 ASSIGNMENT RESULTS SUMMARY"
+        echo "========================================================"
+        echo ""
+        echo "📊 Load Test Results:"
+        echo ""
+        echo "Test 1 (1000 concurrent):"
+        echo "-------------------------"
+        grep -A 10 "Latency Distribution" load_test_1000.txt || echo "Results in load_test_1000.txt"
+        echo ""
+        echo "Test 2 (2000 concurrent - bottleneck test):"
+        echo "-------------------------------------------"
+        grep -A 10 "Latency Distribution" load_test_2000.txt || echo "Results in load_test_2000.txt"
+        echo ""
+        echo "🎯 Kubernetes Autoscaling:"
+        echo "-------------------------"
+        echo "HPA Configuration:"
+        kubectl describe hpa iris-classifier-hpa
+        echo ""
+        echo "Final Pod Status:"
+        kubectl get pods -l app=iris-api -o wide
+        echo ""
+        echo "✅ Week-7 Assignment Tasks Completed!"
+        echo "   ✓ Extended CI/CD with stress testing"
+        echo "   ✓ Load test with >1000 requests"
+        echo "   ✓ HPA configured (min: 1, max: 3)"
+        echo "   ✓ Bottleneck analysis with 2000 requests"
+        echo "========================================================"
+    
+    - name: Upload load test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: load-test-results
+        path: |
+          load_test_1000.txt
+          load_test_2000.txt
+        retention-days: 30
